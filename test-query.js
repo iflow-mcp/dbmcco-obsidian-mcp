@@ -5,7 +5,7 @@ import { QueryProcessor } from './dist/query-processor.js';
 
 async function testQuery() {
   try {
-    const vaultPath = "/users/braydon/obsidian/bvault";
+    const vaultPath = process.env.OBSIDIAN_VAULT_PATH || "/path/to/your/obsidian/vault";
     const vaultManager = new VaultManager();
     const queryProcessor = new QueryProcessor(vaultManager);
     

@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Build outputs
+dist/
+
+# Environment variables
+.env
+.env.local
+
+# Personal configuration files
+CLAUDE.md
+.claude/
+.mcp.json
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Personal vault paths (for development)
+vault-config.json

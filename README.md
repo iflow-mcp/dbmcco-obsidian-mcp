@@ -23,7 +23,7 @@ A Model Context Protocol (MCP) server for natural language interaction with your
 
 3. Set your vault path:
    ```bash
-   export OBSIDIAN_VAULT_PATH="/users/braydon/obsidian/bvault"
+   export OBSIDIAN_VAULT_PATH="/path/to/your/obsidian/vault"
    ```
 
 ## Usage
@@ -50,7 +50,7 @@ Add to your MCP client configuration:
 
 **Read Operations:**
 1. **query_vault**: Process natural language queries about your vault
-   - Example: "for the company Light Forge I am working on, please evaluate the ideas, and suggest refinements"
+   - Example: "What are the main themes in my project notes?"
 
 2. **search_notes**: Search for notes by filename or content
    - Parameters: `searchTerm`, `searchType` (filename/content/both)

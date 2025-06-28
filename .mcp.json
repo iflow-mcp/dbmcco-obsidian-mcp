@@ -4,7 +4,7 @@
       "command": "node",
       "args": ["dist/index.js"],
       "env": {
-        "OBSIDIAN_VAULT_PATH": "/users/braydon/obsidian/bvault"
+        "OBSIDIAN_VAULT_PATH": "/path/to/your/obsidian/vault"
       }
     }
   }

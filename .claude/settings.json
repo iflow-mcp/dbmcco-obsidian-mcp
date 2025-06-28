@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__obsidian__*"
+    ]
+  },
+  "mcpServers": {
+    "obsidian": {
+      "command": "node",
+      "args": ["./dist/index.js"],
+      "env": {
+        "OBSIDIAN_VAULT_PATH": "/users/braydon/obsidian/bvault"
+      }
+    }
+  }
+}

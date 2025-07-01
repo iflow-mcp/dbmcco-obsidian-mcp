@@ -57,6 +57,16 @@ const UpdateNoteSectionArgsSchema = z.object({
   vaultPath: z.string().optional(),
 });
 
+const ListDirectoriesArgsSchema = z.object({
+  directoryPath: z.string().default('').describe('Path to directory relative to vault root (empty for vault root)'),
+  vaultPath: z.string().optional(),
+});
+
+const IntelligentSearchArgsSchema = z.object({
+  query: z.string().describe('Search query - can be keywords, phrases, or natural language'),
+  vaultPath: z.string().optional(),
+});
+
 class ObsidianMCPServer {
   private server: Server;
   private vaultManager: VaultManager;
@@ -265,6 +275,43 @@ class ObsidianMCPServer {
             required: ['notePath', 'sectionHeading', 'newContent'],
           },
         },
+        {
+          name: 'list_directories',
+          description: 'List directories and files in vault or specific directory',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              directoryPath: {
+                type: 'string',
+                description: 'Path to directory relative to vault root (empty for vault root)',
+                default: '',
+              },
+              vaultPath: {
+                type: 'string',
+                description: 'Path to Obsidian vault',
+              },
+            },
+            required: [],
+          },
+        },
+        {
+          name: 'intelligent_search',
+          description: 'Advanced search using link analysis, tag hierarchies, and structural context',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: 'Search query - can be keywords, phrases, or natural language',
+              },
+              vaultPath: {
+                type: 'string',
+                description: 'Path to Obsidian vault',
+              },
+            },
+            required: ['query'],
+          },
+        },
       ],
     }));
 
@@ -372,6 +419,32 @@ class ObsidianMCPServer {
                 {
                   type: 'text',
                   text: `Successfully updated section "${sectionHeading}" in note: ${notePath}`,
+                },
+              ],
+            };
+          }
+
+          case 'list_directories': {
+            const { directoryPath, vaultPath } = ListDirectoriesArgsSchema.parse(args);
+            const listing = await this.vaultManager.listDirectories(directoryPath, vaultPath);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(listing, null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'intelligent_search': {
+            const { query, vaultPath } = IntelligentSearchArgsSchema.parse(args);
+            const results = await this.vaultManager.intelligentSearch(query, vaultPath);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(results, null, 2),
                 },
               ],
             };

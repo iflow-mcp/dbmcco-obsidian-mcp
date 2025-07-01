@@ -128,6 +128,313 @@ export class VaultManager {
         });
         return mdFiles;
     }
+    async listDirectories(directoryPath = '', vaultPath) {
+        const vault = this.getVaultPath(vaultPath);
+        const targetPath = path.join(vault, directoryPath);
+        try {
+            const entries = await fs.readdir(targetPath, { withFileTypes: true });
+            const results = [];
+            for (const entry of entries) {
+                // Skip hidden files and Obsidian metadata
+                if (entry.name.startsWith('.'))
+                    continue;
+                const itemPath = directoryPath ? path.join(directoryPath, entry.name) : entry.name;
+                if (entry.isDirectory()) {
+                    // Count notes in this directory
+                    const notePattern = path.join(itemPath, '**/*.md');
+                    const notesInDir = await glob(notePattern, {
+                        cwd: vault,
+                        absolute: false,
+                    });
+                    results.push({
+                        name: entry.name,
+                        path: itemPath,
+                        type: 'directory',
+                        noteCount: notesInDir.length,
+                    });
+                }
+                else if (entry.name.endsWith('.md')) {
+                    results.push({
+                        name: entry.name,
+                        path: itemPath,
+                        type: 'file',
+                    });
+                }
+            }
+            // Sort: directories first, then files, both alphabetically
+            return results.sort((a, b) => {
+                if (a.type !== b.type) {
+                    return a.type === 'directory' ? -1 : 1;
+                }
+                return a.name.localeCompare(b.name);
+            });
+        }
+        catch (error) {
+            throw new Error(`Failed to list directory ${directoryPath}: ${error}`);
+        }
+    }
+    async buildLinkGraph(vaultPath) {
+        const vault = this.getVaultPath(vaultPath);
+        const linkGraph = new Map();
+        const mdFiles = await glob('**/*.md', {
+            cwd: vault,
+            absolute: false,
+        });
+        for (const file of mdFiles) {
+            const fullPath = path.join(vault, file);
+            try {
+                const content = await fs.readFile(fullPath, 'utf-8');
+                const links = this.extractWikiLinks(content);
+                linkGraph.set(file, new Set(links));
+            }
+            catch (error) {
+                console.error(`Error reading file ${fullPath}:`, error);
+                linkGraph.set(file, new Set());
+            }
+        }
+        return linkGraph;
+    }
+    async buildTagHierarchy(vaultPath) {
+        const vault = this.getVaultPath(vaultPath);
+        const hierarchy = new Map();
+        const mdFiles = await glob('**/*.md', {
+            cwd: vault,
+            absolute: false,
+        });
+        for (const file of mdFiles) {
+            const fullPath = path.join(vault, file);
+            try {
+                const content = await fs.readFile(fullPath, 'utf-8');
+                const tags = this.extractTags(content);
+                for (const tag of tags) {
+                    const parts = tag.split('/');
+                    for (let i = 0; i < parts.length - 1; i++) {
+                        const parent = parts.slice(0, i + 1).join('/');
+                        const child = parts.slice(0, i + 2).join('/');
+                        if (!hierarchy.has(parent)) {
+                            hierarchy.set(parent, []);
+                        }
+                        if (!hierarchy.get(parent).includes(child)) {
+                            hierarchy.get(parent).push(child);
+                        }
+                    }
+                }
+            }
+            catch (error) {
+                console.error(`Error reading file ${fullPath}:`, error);
+            }
+        }
+        return hierarchy;
+    }
+    async intelligentSearch(query, vaultPath) {
+        const [linkGraph, tagHierarchy] = await Promise.all([
+            this.buildLinkGraph(vaultPath),
+            this.buildTagHierarchy(vaultPath)
+        ]);
+        const [directResults, linkResults, tagResults, structuralResults] = await Promise.all([
+            this.searchNotesEnhanced(query, 'both', vaultPath, 'direct'),
+            this.findByLinkProximity(query, linkGraph, vaultPath),
+            this.expandedTagSearch(query, tagHierarchy, vaultPath),
+            this.structuralSearch(query, vaultPath)
+        ]);
+        return this.mergeAndRankResults([
+            directResults,
+            linkResults,
+            tagResults,
+            structuralResults
+        ]);
+    }
+    async searchNotesEnhanced(searchTerm, searchType = 'both', vaultPath, method = 'direct') {
+        const results = await this.searchNotes(searchTerm, searchType, vaultPath);
+        return results.map(result => ({
+            ...result,
+            relevanceScore: 1.0,
+            searchMethod: method
+        }));
+    }
+    async findByLinkProximity(query, linkGraph, vaultPath) {
+        const directMatches = await this.searchNotes(query, 'both', vaultPath);
+        const relatedNotes = new Set();
+        // Find notes that link to/from direct matches
+        for (const match of directMatches) {
+            const linkedNotes = linkGraph.get(match.path) || new Set();
+            linkedNotes.forEach(note => relatedNotes.add(note));
+            // Also find notes that link TO this match
+            for (const [notePath, links] of linkGraph) {
+                const matchBasename = path.basename(match.path, '.md');
+                if (links.has(matchBasename) || links.has(match.path)) {
+                    relatedNotes.add(notePath);
+                }
+            }
+        }
+        const results = [];
+        for (const notePath of relatedNotes) {
+            if (!directMatches.some(m => m.path === notePath)) {
+                const title = await this.getNoteTitle(path.join(this.getVaultPath(vaultPath), notePath));
+                results.push({
+                    path: notePath,
+                    title,
+                    matches: ['Found via link proximity'],
+                    matchType: 'content',
+                    relevanceScore: 0.7,
+                    searchMethod: 'link',
+                    context: 'Connected to matching notes via wiki-links'
+                });
+            }
+        }
+        return results;
+    }
+    async expandedTagSearch(query, tagHierarchy, vaultPath) {
+        const expandedTerms = this.expandQueryByTags(query, tagHierarchy);
+        const allResults = [];
+        for (const term of expandedTerms) {
+            if (term !== query) { // Don't duplicate direct search
+                const results = await this.searchNotesEnhanced(term, 'both', vaultPath, 'tag');
+                results.forEach(result => {
+                    result.relevanceScore = 0.6;
+                    result.context = `Found via tag expansion: ${term}`;
+                });
+                allResults.push(...results);
+            }
+        }
+        return allResults;
+    }
+    async structuralSearch(query, vaultPath) {
+        const vault = this.getVaultPath(vaultPath);
+        const results = [];
+        const mdFiles = await glob('**/*.md', {
+            cwd: vault,
+            absolute: false,
+        });
+        for (const file of mdFiles) {
+            const fullPath = path.join(vault, file);
+            try {
+                const content = await fs.readFile(fullPath, 'utf-8');
+                const sections = this.parseDocumentSections(content);
+                for (const section of sections) {
+                    if (section.content.toLowerCase().includes(query.toLowerCase())) {
+                        const title = await this.getNoteTitle(fullPath);
+                        const relevanceScore = this.calculateStructuralRelevance(section, query);
+                        results.push({
+                            path: file,
+                            title,
+                            matches: [`${section.heading}: ${section.content.substring(0, 100)}...`],
+                            matchType: 'content',
+                            relevanceScore,
+                            searchMethod: 'structural',
+                            context: `Found in section: ${section.heading}`
+                        });
+                    }
+                }
+            }
+            catch (error) {
+                console.error(`Error reading file ${fullPath}:`, error);
+            }
+        }
+        return results.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+    }
+    mergeAndRankResults(resultSets) {
+        const seenPaths = new Set();
+        const mergedResults = [];
+        // Flatten and deduplicate, keeping highest relevance score
+        for (const resultSet of resultSets) {
+            for (const result of resultSet) {
+                if (seenPaths.has(result.path)) {
+                    // If we've seen this path, update score if higher
+                    const existing = mergedResults.find(r => r.path === result.path);
+                    if (existing && (result.relevanceScore || 0) > (existing.relevanceScore || 0)) {
+                        existing.relevanceScore = result.relevanceScore;
+                        existing.searchMethod = result.searchMethod;
+                        existing.context = result.context;
+                    }
+                }
+                else {
+                    seenPaths.add(result.path);
+                    mergedResults.push(result);
+                }
+            }
+        }
+        // Sort by relevance score (highest first)
+        return mergedResults.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+    }
+    extractWikiLinks(content) {
+        const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
+        const links = [];
+        let match;
+        while ((match = wikiLinkRegex.exec(content)) !== null) {
+            const link = match[1].split('|')[0].trim(); // Handle [[note|alias]] format
+            links.push(link);
+        }
+        return links;
+    }
+    extractTags(content) {
+        const tagRegex = /#([\w\/]+)/g;
+        const tags = [];
+        let match;
+        while ((match = tagRegex.exec(content)) !== null) {
+            tags.push(match[1]);
+        }
+        return tags;
+    }
+    expandQueryByTags(query, tagHierarchy) {
+        const expandedTerms = new Set([query]);
+        // Add tag children and siblings
+        for (const [tag, children] of tagHierarchy) {
+            if (tag.toLowerCase().includes(query.toLowerCase())) {
+                expandedTerms.add(tag);
+                children.forEach(child => expandedTerms.add(child));
+            }
+        }
+        // Add parent tags
+        for (const [parent, children] of tagHierarchy) {
+            if (children.some(child => child.toLowerCase().includes(query.toLowerCase()))) {
+                expandedTerms.add(parent);
+            }
+        }
+        return Array.from(expandedTerms);
+    }
+    parseDocumentSections(content) {
+        const lines = content.split('\n');
+        const sections = [];
+        let currentSection = null;
+        lines.forEach((line, index) => {
+            const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+            if (headingMatch) {
+                // Save previous section
+                if (currentSection) {
+                    sections.push(currentSection);
+                }
+                // Start new section
+                currentSection = {
+                    heading: headingMatch[2],
+                    content: '',
+                    level: headingMatch[1].length,
+                    startLine: index
+                };
+            }
+            else if (currentSection) {
+                currentSection.content += line + '\n';
+            }
+        });
+        // Add final section
+        if (currentSection) {
+            sections.push(currentSection);
+        }
+        return sections;
+    }
+    calculateStructuralRelevance(section, query) {
+        let score = 0.5; // Base score
+        // Boost for heading matches
+        if (section.heading.toLowerCase().includes(query.toLowerCase())) {
+            score += 0.3;
+        }
+        // Boost for higher-level headings (more important sections)
+        score += (7 - section.level) * 0.05;
+        // Boost for multiple query occurrences
+        const occurrences = (section.content.toLowerCase().match(new RegExp(query.toLowerCase(), 'g')) || []).length;
+        score += Math.min(occurrences * 0.1, 0.3);
+        return Math.min(score, 1.0);
+    }
     async writeNote(notePath, content, vaultPath) {
         const vault = this.getVaultPath(vaultPath);
         const fullPath = path.join(vault, notePath);

@@ -1,92 +1,416 @@
 # Obsidian MCP Server
 
-A Model Context Protocol (MCP) server for natural language interaction with your Obsidian vault.
+A powerful Model Context Protocol (MCP) server for natural language interaction with your Obsidian vault. Built with TypeScript and designed for seamless integration with Claude Code and other MCP clients.
 
 ## Features
 
+### Core Capabilities
 - **Natural Language Queries**: Ask questions about your vault in plain English
-- **Content Search**: Search notes by filename, content, or both
-- **Backlink Analysis**: Find connections between notes
-- **Smart Context Building**: Automatically gathers relevant information for complex queries
+- **Advanced Search**: Intelligent search with link analysis, tag hierarchies, and structural context
+- **Backlink Analysis**: Find and analyze connections between notes
+- **Vault Navigation**: Browse directory structure and discover notes
+- **Full CRUD Operations**: Read, write, create, append, and update notes
 
-## Setup
+### Advanced Intelligence Tools
+- **Guided Story Path**: Generate narrative tours through linked notes
+- **Note Auditing**: Find recently modified notes missing frontmatter or structure
+- **Contextual Companions**: Discover related notes based on links, keywords, and recency
+- **Fresh Energy**: Identify recently updated notes needing integration
+- **Initiative Bridge**: Track project-specific notes with outstanding tasks
+- **Pattern Echo**: Find notes that reuse specific phrasings or patterns
+- **Synthesis Ready**: Detect note clusters that need summary notes
 
-1. Install dependencies:
+## Installation
+
+### From Source
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/dbmcco/obsidian-mcp.git
+   cd obsidian-mcp
+   ```
+
+2. Install dependencies:
    ```bash
    npm install
    ```
 
-2. Build the project:
+3. Build the project:
    ```bash
    npm run build
    ```
 
-3. Set your vault path:
-   ```bash
-   export OBSIDIAN_VAULT_PATH="/path/to/your/obsidian/vault"
-   ```
+## Configuration
 
-## Usage
+### Claude Code Setup
 
-### As an MCP Server
-
-Add to your MCP client configuration:
+Add to your Claude Code MCP configuration:
 
 ```json
 {
   "mcpServers": {
     "obsidian": {
       "command": "node",
-      "args": ["/path/to/obsidian-mcp/dist/index.js"],
+      "args": ["/absolute/path/to/obsidian-mcp/dist/index.js"],
       "env": {
-        "OBSIDIAN_VAULT_PATH": "/path/to/your/vault"
+        "OBSIDIAN_VAULT_PATH": "/absolute/path/to/your/vault"
       }
     }
   }
 }
 ```
 
-### Available Tools
+### Claude Desktop Setup
 
-**Read Operations:**
-1. **query_vault**: Process natural language queries about your vault
-   - Example: "What are the main themes in my project notes?"
+Add to your `claude_desktop_config.json`:
 
-2. **search_notes**: Search for notes by filename or content
-   - Parameters: `searchTerm`, `searchType` (filename/content/both)
+```json
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "node",
+      "args": ["/absolute/path/to/obsidian-mcp/dist/index.js"],
+      "env": {
+        "OBSIDIAN_VAULT_PATH": "/absolute/path/to/your/vault"
+      }
+    }
+  }
+}
+```
 
-3. **get_note**: Get the full content of a specific note
-   - Parameters: `notePath`
+### Environment Variables
 
-4. **get_backlinks**: Get all notes that link to a specific note
-   - Parameters: `notePath`
+- `OBSIDIAN_VAULT_PATH`: **Required**. Absolute path to your Obsidian vault
 
-**Write Operations:**
-5. **write_note**: Write or overwrite a note with new content
-   - Parameters: `notePath`, `content`
+## Available Tools
 
-6. **create_note**: Create a new note with frontmatter and content
-   - Parameters: `notePath`, `title`, `content` (optional), `tags` (optional)
+### Basic Operations
 
-7. **append_to_note**: Append content to an existing note
-   - Parameters: `notePath`, `content`
+#### query_vault
+Process natural language queries about your vault content.
 
-8. **update_note_section**: Update a specific section of a note by heading
-   - Parameters: `notePath`, `sectionHeading`, `newContent`
+**Example:** "What are the main themes in my project notes?"
 
-## Example Queries
+```typescript
+{
+  query: string,
+  vaultPath?: string  // Optional override
+}
+```
 
-- "Evaluate the ideas for Project Alpha and suggest improvements"
-- "What are the key concepts related to machine learning in my vault?"
-- "Show me all notes connected to the quarterly planning document"
-- "Find all references to the client meeting from last week"
+#### search_notes
+Search for notes by filename or content using exact text matching.
+
+```typescript
+{
+  searchTerm: string,
+  searchType: 'filename' | 'content' | 'both',  // Default: 'both'
+  vaultPath?: string
+}
+```
+
+#### intelligent_search
+Advanced search with link graph analysis, tag hierarchies, and structural context weighting.
+
+```typescript
+{
+  query: string,
+  vaultPath?: string
+}
+```
+
+#### list_directories
+Browse vault directory structure with note counts.
+
+```typescript
+{
+  directoryPath?: string,  // Empty string for vault root
+  vaultPath?: string
+}
+```
+
+#### get_note
+Retrieve the full content of a specific note.
+
+```typescript
+{
+  notePath: string,  // Relative to vault root
+  vaultPath?: string
+}
+```
+
+#### get_backlinks
+Find all notes that link to a specific note with context.
+
+```typescript
+{
+  notePath: string,
+  vaultPath?: string
+}
+```
+
+### Write Operations
+
+#### write_note
+Write or completely overwrite a note.
+
+```typescript
+{
+  notePath: string,
+  content: string,
+  vaultPath?: string
+}
+```
+
+#### create_note
+Create a new note with frontmatter and content.
+
+```typescript
+{
+  notePath: string,
+  title: string,
+  content?: string,
+  tags?: string[],
+  vaultPath?: string
+}
+```
+
+#### append_to_note
+Append content to an existing note.
+
+```typescript
+{
+  notePath: string,
+  content: string,
+  vaultPath?: string
+}
+```
+
+#### update_note_section
+Update a specific section identified by heading.
+
+```typescript
+{
+  notePath: string,
+  sectionHeading: string,
+  newContent: string,
+  vaultPath?: string
+}
+```
+
+### Advanced Intelligence
+
+#### guided_path
+Generate a narrative tour through linked notes starting from a seed note.
+
+```typescript
+{
+  notePath: string,
+  supportingLimit?: number,      // Default: 3
+  counterpointLimit?: number,    // Default: 3
+  includeActionItems?: boolean,  // Default: true
+  vaultPath?: string
+}
+```
+
+**Output:** Markdown narrative with introduction, supporting threads, counterpoints, and action items.
+
+#### audit_recent_notes
+Find recently modified notes missing frontmatter or structure.
+
+```typescript
+{
+  hoursBack?: number,           // Default: 72
+  limit?: number,               // Default: 25
+  requiredFields?: string[],    // Default: ['title', 'created']
+  requireHeadings?: boolean,    // Default: false
+  vaultPath?: string
+}
+```
+
+#### contextual_companions
+Discover notes related to a topic or seed note based on links, keywords, and recency.
+
+```typescript
+{
+  notePath?: string,    // Optional seed note
+  topic?: string,       // Optional topic query
+  limit?: number,       // Default: 5
+  vaultPath?: string
+}
+```
+
+**Note:** Must provide either `notePath` or `topic`.
+
+#### fresh_energy
+Find recently updated notes lacking backlinks or outgoing links (needing integration).
+
+```typescript
+{
+  hoursBack?: number,   // Default: 48
+  limit?: number,       // Default: 10
+  minWords?: number,    // Default: 80
+  vaultPath?: string
+}
+```
+
+#### initiative_bridge
+Track project/initiative-tagged notes with outstanding tasks.
+
+```typescript
+{
+  initiative: string,           // Required: project identifier
+  frontmatterField?: string,    // Default: 'project'
+  limit?: number,               // Default: 10
+  vaultPath?: string
+}
+```
+
+#### pattern_echo
+Find notes that reuse specific phrasings, bullet patterns, or framework fragments.
+
+```typescript
+{
+  snippet: string,      // Required: text pattern to find
+  limit?: number,       // Default: 5
+  vaultPath?: string
+}
+```
+
+#### synthesis_ready
+Detect clusters of interlinked notes that lack a summary/synthesis note.
+
+```typescript
+{
+  minClusterSize?: number,  // Default: 3
+  vaultPath?: string
+}
+```
+
+## Example Use Cases
+
+### Knowledge Discovery
+```javascript
+// Find all notes about a topic with intelligent expansion
+await intelligentSearch({ query: "machine learning" });
+
+// Discover related notes for further reading
+await contextualCompanions({
+  topic: "neural networks",
+  limit: 10
+});
+```
+
+### Vault Maintenance
+```javascript
+// Audit recent work for missing metadata
+await auditRecentNotes({
+  hoursBack: 168,  // Last week
+  requiredFields: ['title', 'created', 'tags']
+});
+
+// Find orphaned notes needing links
+await freshEnergy({ hoursBack: 72 });
+
+// Identify note clusters needing synthesis
+await synthesisReady({ minClusterSize: 4 });
+```
+
+### Project Management
+```javascript
+// Track all tasks for a specific project
+await initiativeBridge({
+  initiative: "Project Alpha",
+  frontmatterField: "project"
+});
+
+// Generate a narrative overview of a topic
+await guidedPath({
+  notePath: "Projects/Project Alpha.md",
+  supportingLimit: 5,
+  includeActionItems: true
+});
+```
+
+### Pattern Analysis
+```javascript
+// Find notes using a specific framework
+await patternEcho({
+  snippet: "SWOT Analysis:",
+  limit: 10
+});
+```
 
 ## Development
 
+### Scripts
 - `npm run dev`: Watch mode for development
-- `npm run build`: Build the project
-- `npm run start`: Start the server
+- `npm run build`: Build TypeScript to JavaScript
+- `npm run start`: Start the MCP server
 
-## Environment Variables
+### Project Structure
+```
+obsidian-mcp/
+├── src/
+│   ├── index.ts           # MCP server and tool definitions
+│   ├── vault-manager.ts   # Vault operations and intelligence
+│   └── query-processor.ts # Natural language query processing
+├── dist/                  # Compiled JavaScript (generated)
+├── package.json
+├── tsconfig.json
+└── README.md
+```
 
-- `OBSIDIAN_VAULT_PATH`: Path to your Obsidian vault (required)
+## Technical Details
+
+### Architecture
+- **TypeScript** with strict mode enabled
+- **ES Modules** (NodeNext)
+- **Zod** for runtime type validation
+- **gray-matter** for frontmatter parsing
+- **glob** for file pattern matching
+
+### Search Methods
+The `intelligent_search` tool combines four search strategies:
+1. **Direct matching**: Exact keyword matches in content/filenames
+2. **Link proximity**: Notes connected via wiki-links
+3. **Tag expansion**: Related notes via tag hierarchies
+4. **Structural context**: Section-aware searching with relevance scoring
+
+Results are merged, deduplicated, and ranked by relevance score.
+
+### Performance
+- No caching - all searches are real-time to avoid staleness
+- Lazy loading of note content for large vaults
+- Efficient glob patterns for file discovery
+
+## Credits
+
+Built by Braydon with Claude (Anthropic). This MCP server was developed using test-driven development principles and extensive collaboration with Claude Code.
+
+## License
+
+MIT License - feel free to use and modify as needed.
+
+## Contributing
+
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with tests
+4. Submit a pull request
+
+## Troubleshooting
+
+### "No vault path provided" error
+Ensure `OBSIDIAN_VAULT_PATH` is set in your MCP configuration or environment variables.
+
+### MCP server not connecting
+- Verify the path to `dist/index.js` is absolute, not relative
+- Ensure the server is built (`npm run build`)
+- Check that Node.js can execute the script
+
+### Search returns no results
+- Verify vault path is correct
+- Check that `.md` files exist in the vault
+- Try using `list_directories` to explore the vault structure

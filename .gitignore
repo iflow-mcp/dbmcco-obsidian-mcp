@@ -2,9 +2,6 @@
 node_modules/
 npm-debug.log*
 
-# Build outputs
-dist/
-
 # Environment variables
 .env
 .env.local
@@ -13,6 +10,7 @@ dist/
 CLAUDE.md
 .claude/
 .mcp.json
+AGENTS.md
 
 # Editor files
 .vscode/
@@ -30,3 +28,6 @@ logs/
 
 # Personal vault paths (for development)
 vault-config.json
+
+# Test files (if added in future)
+test-query.js

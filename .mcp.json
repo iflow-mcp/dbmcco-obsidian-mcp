@@ -1,3 +1,19 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "obsidian": {
+      "command": "node",
+      "args": ["/Users/braydon/projects/experiments/mcp/obsidian_mcp/dist/index.js"],
+      "env": {
+        "OBSIDIAN_VAULT_PATH": "/users/braydon/obsidian/bvault"
+      }
+    },
+    "reminders": {
+      "command": "node",
+      "args": ["/Users/braydon/projects/experiments/mcp/reminders_mcp/dist/index.js"]
+    },
+    "journal": {
+      "command": "node",
+      "args": ["/Users/braydon/projects/experiments/mcp/journal-mcp/dist/index.js"]
+    }
+  }
 }

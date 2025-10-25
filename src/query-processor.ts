@@ -1,3 +1,5 @@
+// ABOUTME: Natural language query processing for Obsidian vault content
+// Extracts search terms, builds context, and generates responses based on query intent
 import { VaultManager, NoteSearchResult, Backlink } from './vault-manager.js';
 
 interface QueryContext {
